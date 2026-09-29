@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework><AssemblyName>ESD.API</AssemblyName></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ESD.Core\ESD.Core.csproj" />
+    <ProjectReference Include="..\ESD.Service\ESD.Service.csproj" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+  </ItemGroup>
+</Project>

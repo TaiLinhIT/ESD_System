@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework> <!-- Phải có -windows -->
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF> <!-- BẮT BUỘC -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ESD.Core\ESD.Core.csproj" />
+    <ProjectReference Include="..\ESD.Service\ESD.Service.csproj" />
+  </ItemGroup>
+
+</Project>

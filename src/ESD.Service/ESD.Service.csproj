@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework><AssemblyName>ESD.Service</AssemblyName></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ESD.Core\ESD.Core.csproj" />
+    <ProjectReference Include="..\ESD.Device\ESD.Device.csproj" />
+    <ProjectReference Include="..\ESD.Data\ESD.Data.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+  </ItemGroup>
+</Project>
