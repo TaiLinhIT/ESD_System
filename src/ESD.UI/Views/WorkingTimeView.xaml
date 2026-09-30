@@ -1,0 +1,20 @@
+<UserControl x:Class="ESD.UI.Views.WorkingTimeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="22">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <TextBlock Text="WORKING TIME / COMPLIANCE" Style="{StaticResource PageTitle}" Margin="0,0,0,15"/>
+        <DataGrid Grid.Row="1" ItemsSource="{Binding Sessions}" AutoGenerateColumns="False" IsReadOnly="True">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="EMPLOYEE" Binding="{Binding EmployeeId}" Width="100"/>
+                <DataGridTextColumn Header="STATION" Binding="{Binding StationCode}" Width="90"/>
+                <DataGridTextColumn Header="START" Binding="{Binding Start, StringFormat={}{0:HH:mm:ss}}" Width="100"/>
+                <DataGridTextColumn Header="END" Binding="{Binding End, StringFormat={}{0:HH:mm:ss}}" Width="100"/>
+                <DataGridTextColumn Header="OK TIME" Binding="{Binding OkTime}" Width="110"/>
+                <DataGridTextColumn Header="NG TIME" Binding="{Binding NgTime}" Width="110"/>
+                <DataGridTextColumn Header="DISCONNECTED" Binding="{Binding DisconnectedTime}" Width="130"/>
+                <DataGridTextColumn Header="COMPLIANCE" Binding="{Binding Compliance, StringFormat={}{0:F1}%}" Width="120"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

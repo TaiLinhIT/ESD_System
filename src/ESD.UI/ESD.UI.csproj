@@ -9,6 +9,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="logo_han.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="logo_han.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LiveCharts.Wpf" Version="0.9.7" />
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ESD.Core\ESD.Core.csproj" />
     <ProjectReference Include="..\ESD.Service\ESD.Service.csproj" />
   </ItemGroup>
