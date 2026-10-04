@@ -1,8 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework><AssemblyName>ESD.Data</AssemblyName></PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>ESD.Data</AssemblyName>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\ESD.Core\ESD.Core.csproj" />
-    <PackageReference Include="MySqlConnector" Version="2.4.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore"                  Version="8.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer"        Version="8.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools"            Version="8.0.10" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design"           Version="8.0.10" PrivateAssets="all" />
   </ItemGroup>
 </Project>

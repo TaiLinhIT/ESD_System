@@ -3,35 +3,41 @@ using ESD.Device;
 
 namespace ESD.Service;
 
+/// <summary>
+/// Owns all <see cref="IEsdDevice"/> instances.
+/// Translates raw <see cref="EsdFrame"/> events into domain <see cref="EsdEvent"/>
+/// and publishes them through <see cref="EventManager"/>.
+/// </summary>
 public sealed class DeviceManager : IDeviceManager
 {
-    private readonly List<IDevice> _devices = [];
-    private readonly AppSettings _settings;
-    private readonly EventManager _events;
-    private readonly FileLogger _log;
-    private readonly EsdStateMachine _stateMachine = new();
+    private readonly List<IEsdDevice>  _devices = [];
+    private readonly EventManager      _events;
+    private readonly FileLogger        _log;
 
-    public IReadOnlyCollection<IDevice> Devices => _devices;
+    public IReadOnlyCollection<IEsdDevice> Devices => _devices;
 
     public DeviceManager(AppSettings settings, EventManager events, FileLogger log)
     {
-        _settings = settings;
         _events = events;
-        _log = log;
+        _log    = log;
 
-        foreach (var d in settings.Devices)
+        foreach (var s in settings.Devices)
         {
             var cfg = new DeviceConfig(
-                d.Name, d.PortName, d.BaudRate, d.DataBits, d.Parity, d.StopBits,
-                Enum.TryParse<DeviceTransport>(d.Transport, true, out var t) ? t : DeviceTransport.Mock,
-                Enum.TryParse<DeviceProtocol>(d.Protocol, true, out var p) ? p : DeviceProtocol.Raw,
-                d.SlaveId, d.PollIntervalMs);
+                Name:                s.Name,
+                PortName:            s.PortName,
+                BaudRate:            s.BaudRate,
+                DataBits:            s.DataBits,
+                Parity:              s.Parity,
+                StopBits:            s.StopBits,
+                ReadTimeoutMs:       s.ReadTimeoutMs,
+                WriteTimeoutMs:      s.WriteTimeoutMs,
+                RetryCount:          s.RetryCount,
+                HeartbeatIntervalMs: s.HeartbeatIntervalMs,
+                ProtocolVersion:     s.ProtocolVersion);
 
-            IDevice device = cfg.Transport == DeviceTransport.Serial
-                ? new SerialDevice(cfg)
-                : new MockDevice(cfg);
-
-            device.DataReceived += OnDataReceived;
+            var device = DeviceFactory.Create(cfg);
+            device.EventReceived += OnDeviceEvent;
             _devices.Add(device);
         }
     }
@@ -43,42 +49,49 @@ public sealed class DeviceManager : IDeviceManager
             try
             {
                 await d.OpenAsync(ct);
-                _log.Info($"Device opened: {d.Name}");
+                _log.Info($"[DEVICE] Opened: {d.Name} (addr=0x{d.Address:X2})");
             }
             catch (Exception ex)
             {
-                _log.Error($"Device open failed: {d.Name} - {ex.Message}");
+                _log.Error($"[DEVICE] Failed to open {d.Name}: {ex.Message}");
             }
         }
     }
 
-    private void OnDataReceived(object? sender, DeviceMessage msg)
+    private void OnDeviceEvent(object? sender, EsdFrame frame)
     {
-        var state = _stateMachine.Process(msg);
-        var text = msg.RawText.Trim();
-        var employee = "";
-        var type = "DEVICE_DATA";
+        var deviceName = (sender as IEsdDevice)?.Name ?? "unknown";
 
-        if (text.StartsWith("REMOVE:", StringComparison.OrdinalIgnoreCase))
-        {
-            type = "ESD_REMOVE";
-            employee = text[7..].Trim();
-        }
-        else if (text.StartsWith("INSTALL:", StringComparison.OrdinalIgnoreCase))
-        {
-            type = "ESD_INSTALL";
-            employee = text[8..].Trim();
-        }
-        else if (text.Equals("CONNECT", StringComparison.OrdinalIgnoreCase))
-        {
-            type = "DEVICE_CONNECTED";
-        }
+        // Decode event payload: [EventType(1)] [EmployeeId(1)] [StrapStatus(1)]
+        var evtType = frame.Data.Length > 0
+            ? (EsdEventType)frame.Data[0]
+            : EsdEventType.DeviceConnected;
 
-        _log.Info($"{msg.Device}: RX {Convert.ToHexString(msg.Data)} | {text}");
+        var empId = frame.Data.Length > 1
+            ? $"EMP{frame.Data[1]:0000}"
+            : string.Empty;
 
-        _events.Publish(new EsdEvent(
-            msg.Timestamp, msg.Device, employee, type, "OK",
-            Convert.ToHexString(msg.Data), $"State={state}"));
+        var strapStatus = frame.Data.Length > 2
+            ? (WristStrapStatus)frame.Data[2]
+            : WristStrapStatus.NotConnected;
+
+        var rawHex = Convert.ToHexString(frame.Data);
+
+        _log.Info(
+            $"[EVENT] {deviceName} | CMD=0x{(byte)frame.Command:X2} " +
+            $"| Type={evtType} | Emp={empId} | Strap={strapStatus} | HEX={rawHex}");
+
+        var domainEvent = new EsdEvent(
+            Timestamp:    DateTime.Now,
+            DeviceName:   deviceName,
+            DeviceAddress: frame.Address,
+            EventType:    evtType,
+            EmployeeId:   empId,
+            StrapStatus:  strapStatus,
+            RawHex:       rawHex,
+            Message:      $"SEQ={frame.Sequence}");
+
+        _events.Publish(domainEvent);
     }
 
     public async Task StopAsync()

@@ -1,30 +1,51 @@
 namespace ESD.Core;
 
-public enum EsdState { Disconnected, Idle, WaitingForDevice, UserDetected, Error }
+public enum EsdState
+{
+    Disconnected,
+    Idle,
+    WorkerPresent,
+    StrapOk,
+    StrapNg,
+    Error,
+}
 
+/// <summary>
+/// Per-device state machine driven by decoded protocol events.
+/// This is pure domain logic — no serial/protocol knowledge here.
+/// </summary>
 public sealed class EsdStateMachine
 {
     public EsdState State { get; private set; } = EsdState.Disconnected;
 
-    public EsdState Process(DeviceMessage message)
+    public EsdState Transition(EsdEventType eventType, WristStrapStatus strapStatus)
     {
-        if (message.Data.Length == 0)
-            return State = EsdState.Error;
+        State = eventType switch
+        {
+            EsdEventType.DeviceConnected        => EsdState.Idle,
+            EsdEventType.DeviceDisconnected     => EsdState.Disconnected,
 
-        // Demo protocol:
-        // "CONNECT" -> idle
-        // "REMOVE:<employee>" -> employee removed
-        // "INSTALL:<employee>" -> employee installed
-        // Other data -> waiting/device event
-        var text = message.RawText.Trim();
+            EsdEventType.WorkerDetected         => strapStatus switch
+            {
+                WristStrapStatus.Ok      => EsdState.StrapOk,
+                WristStrapStatus.Ng      => EsdState.StrapNg,
+                WristStrapStatus.Warning => EsdState.StrapNg,
+                _                        => EsdState.WorkerPresent,
+            },
 
-        if (text.Equals("CONNECT", StringComparison.OrdinalIgnoreCase))
-            State = EsdState.Idle;
-        else if (text.StartsWith("REMOVE:", StringComparison.OrdinalIgnoreCase) ||
-                 text.StartsWith("INSTALL:", StringComparison.OrdinalIgnoreCase))
-            State = EsdState.UserDetected;
-        else
-            State = EsdState.WaitingForDevice;
+            EsdEventType.WorkerRemoved          => EsdState.Idle,
+
+            EsdEventType.WristStrapConnected    => EsdState.StrapOk,
+            EsdEventType.WristStrapDisconnected => EsdState.StrapNg,
+
+            EsdEventType.EsdTestPass            => EsdState.StrapOk,
+            EsdEventType.EsdTestFail            => EsdState.StrapNg,
+
+            EsdEventType.Alarm                  => EsdState.Error,
+            EsdEventType.AlarmReset             => EsdState.Idle,
+
+            _ => State,
+        };
 
         return State;
     }

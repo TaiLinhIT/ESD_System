@@ -8,70 +8,83 @@ public sealed class BackgroundDbWorker
     private readonly Channel<DbEvent> _queue = Channel.CreateUnbounded<DbEvent>(
         new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
     private readonly IEventRepository _repository;
-    private readonly FileLogger _log;
-    private CancellationTokenSource? _cts;
-    private Task? _worker;
+    private readonly FileLogger       _log;
 
-    private int _queueCount;
+    private CancellationTokenSource? _cts;
+    private Task?                    _worker;
+    private int                      _queueCount;
 
     public int QueueCount => Volatile.Read(ref _queueCount);
 
     public BackgroundDbWorker(IEventRepository repository, FileLogger log)
     {
         _repository = repository;
-        _log = log;
+        _log        = log;
     }
 
     public void Enqueue(EsdEvent evt)
     {
-        var item = new DbEvent(evt.Timestamp, evt.Device, evt.EmployeeId,
-            evt.EventType, evt.Status, evt.RawData, evt.Message);
+        var item = new DbEvent(
+            evt.Timestamp,
+            evt.DeviceName,
+            evt.EmployeeId,
+            evt.EventType.ToString(),
+            evt.StrapStatus.ToString(),
+            evt.RawHex,
+            evt.Message);
 
         if (_queue.Writer.TryWrite(item))
             Interlocked.Increment(ref _queueCount);
         else
-            _log.Error("DB queue rejected event.");
+            _log.Error("[DB] Queue rejected event — channel full.");
     }
 
     public void Start(CancellationToken ct)
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        _worker = Task.Run(async () =>
+        _cts    = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _worker = Task.Run(() => ProcessLoopAsync(_cts.Token), _cts.Token);
+    }
+
+    private async Task ProcessLoopAsync(CancellationToken ct)
+    {
+        await foreach (var item in _queue.Reader.ReadAllAsync(ct))
         {
-            await foreach (var item in _queue.Reader.ReadAllAsync(_cts.Token))
+            await InsertWithRetryAsync(item, ct);
+            Interlocked.Decrement(ref _queueCount);
+        }
+    }
+
+    private async Task InsertWithRetryAsync(DbEvent item, CancellationToken ct)
+    {
+        const int maxAttempts = 3;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
             {
-                try
-                {
-                    await _repository.InsertAsync(item, _cts.Token);
-                    Interlocked.Decrement(ref _queueCount);
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"DB insert failed: {ex.Message}");
-                    // Retry once after a delay; event remains in memory while retrying.
-                    try
-                    {
-                        await Task.Delay(1000, _cts.Token);
-                        await _repository.InsertAsync(item, _cts.Token);
-                        Interlocked.Decrement(ref _queueCount);
-                    }
-                    catch (Exception retryEx)
-                    {
-                        _log.Error($"DB retry failed: {retryEx.Message}");
-                        Interlocked.Decrement(ref _queueCount);
-                    }
-                }
+                await _repository.InsertAsync(item, ct);
+                return;
             }
-        }, _cts.Token);
+            catch (Exception ex) when (attempt < maxAttempts)
+            {
+                _log.Error($"[DB] Insert attempt {attempt} failed: {ex.Message} — retrying…");
+                await Task.Delay(1_000 * attempt, ct); // back-off: 1s, 2s
+            }
+            catch (Exception ex)
+            {
+                _log.Error($"[DB] Insert failed after {maxAttempts} attempts: {ex.Message}");
+            }
+        }
     }
 
     public async Task StopAsync()
     {
         _queue.Writer.TryComplete();
-        if (_worker != null)
+        if (_worker is not null)
         {
-            try { await _worker; } catch (OperationCanceledException) { }
+            try { await _worker; }
+            catch (OperationCanceledException) { }
         }
         _cts?.Cancel();
+        _cts?.Dispose();
     }
 }

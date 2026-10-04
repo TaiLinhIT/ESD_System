@@ -1,6 +1,6 @@
 namespace ESD.UI.Models;
 
-public class EsdEvent
+public class StationEvent
 {
     public long Id { get; set; }
     public DateTime Timestamp { get; set; }

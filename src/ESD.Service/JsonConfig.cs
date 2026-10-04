@@ -9,11 +9,10 @@ public sealed class JsonConfig
     {
         if (!File.Exists(path))
         {
-            var settings = Default();
-            Save(path, settings);
-            return settings;
+            var def = Default();
+            Save(path, def);
+            return def;
         }
-
         var json = File.ReadAllText(path);
         return JsonSerializer.Deserialize<AppSettings>(json, Options()) ?? Default();
     }
@@ -26,8 +25,9 @@ public sealed class JsonConfig
 
     private static JsonSerializerOptions Options() => new()
     {
-        WriteIndented = true,
-        Converters = { new JsonStringEnumConverter() }
+        WriteIndented          = true,
+        Converters             = { new JsonStringEnumConverter() },
+        PropertyNameCaseInsensitive = true,
     };
 
     private static AppSettings Default() => new()
@@ -35,8 +35,22 @@ public sealed class JsonConfig
         LogDirectory = "logs",
         Devices =
         [
-            new DeviceSetting { Name = "ESD-MOCK-01", Transport = "Mock", PollIntervalMs = 1500 },
-            new DeviceSetting { Name = "ESD-RS485-01", Transport = "Serial", PortName = "COM3", BaudRate = 9600, Protocol = "ModbusRtu" }
-        ]
+            new DeviceSetting
+            {
+                Name                = "ESD-MOCK-01",
+                ProtocolVersion     = "Mock",
+                HeartbeatIntervalMs = 5_000,
+                RetryCount          = 3,
+            },
+            new DeviceSetting
+            {
+                Name                = "ESD-RS485-01",
+                PortName            = "COM3",
+                BaudRate            = 115200,
+                ProtocolVersion     = "ESD-V1",
+                HeartbeatIntervalMs = 5_000,
+                RetryCount          = 3,
+            },
+        ],
     };
 }

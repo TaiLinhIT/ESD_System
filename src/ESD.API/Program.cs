@@ -2,14 +2,24 @@ using ESD.Service;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() { Title = "ESD API", Version = "v1" });
+});
 
-var app = builder.Build();
+var app    = builder.Build();
+var cfgPath = Path.Combine(AppContext.BaseDirectory, "config", "appsettings.json");
+var runtime = new EsdRuntime(cfgPath);
+var cts     = new CancellationTokenSource();
 
-var configPath = Path.Combine(AppContext.BaseDirectory, "config", "appsettings.json");
-var runtime = new EsdRuntime(configPath);
-var cts = new CancellationTokenSource();
-await runtime.StartAsync(cts.Token);
+try
+{
+    await runtime.StartAsync(cts.Token);
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "ESD Runtime failed to start.");
+}
 
 app.Lifetime.ApplicationStopping.Register(() =>
 {
@@ -17,17 +27,29 @@ app.Lifetime.ApplicationStopping.Register(() =>
     runtime.DisposeAsync().AsTask().GetAwaiter().GetResult();
 });
 
-app.MapGet("/", () => Results.Ok(new { service = "ESD.API", status = "running" }));
-app.MapGet("/api/devices", () =>
-    Results.Ok(runtime.Devices.Devices.Select(d => new { d.Name, d.IsConnected })));
+// ── Endpoints ────────────────────────────────────────────────────────────────
+
+app.MapGet("/", () => Results.Ok(new { service = "ESD.API", version = "1.0" }))
+   .WithTags("Health");
 
 app.MapGet("/api/status", () => Results.Ok(new
 {
-    service = "running",
-    devices = runtime.Devices.Devices.Count,
-    connected = runtime.Devices.Devices.Count(x => x.IsConnected),
-    dbQueue = runtime.DbWorker.QueueCount
-}));
+    service   = "running",
+    devices   = runtime.Devices.Devices.Count,
+    connected = runtime.Devices.Devices.Count(d => d.IsConnected),
+    dbQueue   = runtime.DbWorker.QueueCount,
+    utc       = DateTime.UtcNow,
+})).WithTags("Status");
+
+app.MapGet("/api/devices", () =>
+    Results.Ok(runtime.Devices.Devices.Select(d => new
+    {
+        d.Name,
+        d.Address,
+        d.IsConnected,
+    }))).WithTags("Devices");
+
+// ── Swagger ───────────────────────────────────────────────────────────────────
 
 if (app.Environment.IsDevelopment())
 {

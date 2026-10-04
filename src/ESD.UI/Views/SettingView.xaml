@@ -1,26 +1,47 @@
-<UserControl x:Class="ESD.UI.Views.SettingView"
+﻿<UserControl x:Class="ESD.UI.Views.SettingView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <StackPanel Margin="22" Width="600">
-        <TextBlock Text="RS485 / SYSTEM SETTINGS" Style="{StaticResource PageTitle}"/>
-        <Grid Margin="0,25,0,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="45"/><RowDefinition Height="45"/><RowDefinition Height="45"/><RowDefinition Height="45"/>
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-            <TextBlock Text="COM PORT" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="1" Text="{Binding ComPort}" Padding="8"/>
-            <TextBlock Grid.Row="1" Text="BAUD RATE" VerticalAlignment="Center"/>
-            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding BaudRate}" Padding="8"/>
-            <TextBlock Grid.Row="2" Text="PARITY" VerticalAlignment="Center"/>
-            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Parity}" Padding="8"/>
-            <TextBlock Grid.Row="3" Text="STOP BITS" VerticalAlignment="Center"/>
-            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StopBits}" Padding="8"/>
-        </Grid>
-        <StackPanel Orientation="Horizontal" Margin="0,15,0,0">
-            <Button Content="CONNECT" Command="{Binding ConnectCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,10,0"/>
-            <Button Content="DISCONNECT" Command="{Binding DisconnectCommand}" Style="{StaticResource SecondaryButton}"/>
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource PageBackground}">
+    <ScrollViewer Margin="22" VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="620" HorizontalAlignment="Left">
+            <TextBlock Text="RS485 / System Settings" Style="{StaticResource PageTitle}" Margin="0,0,0,4"/>
+            <TextBlock Text="Changes take effect after restart" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,0,0,20"/>
+
+            <Border Style="{StaticResource SectionCard}" Padding="20">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="50"/><RowDefinition Height="50"/><RowDefinition Height="50"/>
+                        <RowDefinition Height="50"/><RowDefinition Height="50"/><RowDefinition Height="50"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="COM Port" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox Grid.Column="1" Text="{Binding ComPort}" VerticalAlignment="Center"/>
+
+                    <TextBlock Grid.Row="1" Text="Baud Rate" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding BaudRate}" VerticalAlignment="Center"/>
+
+                    <TextBlock Grid.Row="2" Text="Parity" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Parity}" VerticalAlignment="Center"/>
+
+                    <TextBlock Grid.Row="3" Text="Stop Bits" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StopBits}" VerticalAlignment="Center"/>
+
+                    <TextBlock Grid.Row="4" Text="Retry Count" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding RetryCount}" VerticalAlignment="Center"/>
+
+                    <TextBlock Grid.Row="5" Text="Heartbeat (ms)" VerticalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
+                    <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding HeartbeatMs}" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+
+            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                <Button Content="Save Settings" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButton}"/>
+            </StackPanel>
+            <TextBlock Text="{Binding Status}" Margin="0,12,0,0" Foreground="{StaticResource AccentBlue}" FontWeight="SemiBold"/>
         </StackPanel>
-        <TextBlock Text="{Binding Status}" Margin="0,18,0,0" FontWeight="Bold"/>
-    </StackPanel>
+    </ScrollViewer>
 </UserControl>
