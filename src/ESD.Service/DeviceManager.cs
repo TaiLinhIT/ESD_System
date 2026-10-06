@@ -62,16 +62,31 @@ public sealed class DeviceManager : IDeviceManager
     {
         var deviceName = (sender as IEsdDevice)?.Name ?? "unknown";
 
-        // Decode event payload: [EventType(1)] [EmployeeId(1)] [StrapStatus(1)]
-        var evtType = frame.Data.Length > 0
-            ? (EsdEventType)frame.Data[0]
-            : EsdEventType.DeviceConnected;
+        // Decode event payload based on frame command
+        EsdEventType evtType;
+        byte[] rawPayload = frame.Data;
 
-        var empId = frame.Data.Length > 1
+        if (frame.Command == EsdCommand.Alarm)
+        {
+            // Alarm payload is ASCII string, not [EventType][EmployeeId][StrapStatus]
+            // Just use the first byte as a type indicator, but mark it as Alarm
+            evtType = EsdEventType.AlarmReset; // fallback
+            rawPayload = frame.Data;
+        }
+        else if (frame.Data.Length > 0)
+        {
+            evtType = (EsdEventType)frame.Data[0];
+        }
+        else
+        {
+            evtType = EsdEventType.DeviceConnected;
+        }
+
+        var empId = rawPayload.Length > 1
             ? $"EMP{frame.Data[1]:0000}"
             : string.Empty;
 
-        var strapStatus = frame.Data.Length > 2
+        var strapStatus = rawPayload.Length > 2
             ? (WristStrapStatus)frame.Data[2]
             : WristStrapStatus.NotConnected;
 

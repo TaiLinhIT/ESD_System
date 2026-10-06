@@ -57,7 +57,13 @@ internal sealed class CommandManager : IDisposable
                 if (consumed > 0)
                     _receiveBuffer.RemoveRange(0, consumed);
 
-                if (!got) break; // need more bytes
+                if (!got)
+                {
+                    // Protocol discarded some bytes (e.g. garbage before STX,
+                    // or LEN too large). Resync: continue looking for the next frame.
+                    if (consumed > 0) continue;
+                    break; // NeedMore — wait for more data
+                }
 
                 DispatchFrame(frame!);
             }

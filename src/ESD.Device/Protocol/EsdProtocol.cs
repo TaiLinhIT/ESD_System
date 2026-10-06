@@ -18,6 +18,8 @@ public sealed class EsdProtocol : IProtocol
     public const byte Etx     = 0x7F;
     public const byte Version = 0x01;
 
+    public const int MaxData = 255; // limit to prevent runaway frames
+
     // Header offsets (after STX)
     private const int OffVer  = 1;
     private const int OffLenH = 2;
@@ -83,6 +85,14 @@ public sealed class EsdProtocol : IProtocol
 
         // Read LEN (big-endian)
         ushort dataLen = (ushort)((buffer[OffLenH] << 8) | buffer[OffLenL]);
+
+        // Bounded data length — prevent runaway frames from rogue bytes
+        if (dataLen > MaxData)
+        {
+            consumed = 1;
+            return false; // resync caller
+        }
+
         int totalFrame = MinFrame + dataLen;
 
         if (buffer.Length < totalFrame) return false; // wait for more bytes
