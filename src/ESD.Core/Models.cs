@@ -14,7 +14,17 @@ public sealed record DeviceConfig(
     int WriteTimeoutMs,
     int RetryCount,
     int HeartbeatIntervalMs,
-    string ProtocolVersion);
+    string ProtocolVersion,
+    uint DeviceId = 1,
+    string HmacKey = "00112233445566778899AABBCCDDEEFF",
+    int CommandTimeoutMs = 3000)
+{
+    /// <summary>Decoded HMAC key bytes for the Arduino protocol.</summary>
+    public byte[] HmacKeyBytes =>
+        ArduinoFrameCodec.FromHex(string.IsNullOrWhiteSpace(HmacKey)
+            ? "00112233445566778899AABBCCDDEEFF"
+            : HmacKey);
+};
 
 // ─────────────────────────────────────────────
 // ESD Protocol V1 — Command codes

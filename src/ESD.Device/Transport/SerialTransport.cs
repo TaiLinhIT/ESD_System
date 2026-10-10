@@ -7,6 +7,13 @@ namespace ESD.Device.Transport;
 /// Raw serial (RS-232 / RS-485) transport.
 /// Collects bytes from DataReceived and raises them in chunks — the
 /// Protocol layer is responsible for framing; we never process here.
+///
+/// USB-Serial notes (CH340/CP210x on Arduino Uno/Nano):
+///   - Read/Write timeouts of 0 (infinite) avoid the
+///     "semaphore timeout period has expired" failure seen with
+///     short timeouts on USB-Serial adapters.
+///   - Handshaking and DTR/RTS stay off — required by many
+///     Arduino clones that reset on DTR toggle.
 /// </summary>
 public sealed class SerialTransport : ITransport
 {
@@ -31,8 +38,8 @@ public sealed class SerialTransport : ITransport
         string parity        = "None",
         int    dataBits      = 8,
         int    stopBits      = 1,
-        int    readTimeoutMs  = 500,
-        int    writeTimeoutMs = 500)
+        int    readTimeoutMs  = 0,
+        int    writeTimeoutMs = 0)
     {
         _portName     = portName;
         _baudRate     = baudRate;
@@ -47,8 +54,16 @@ public sealed class SerialTransport : ITransport
     {
         _port = new SerialPort(_portName, _baudRate, _parity, _dataBits, _stopBits)
         {
-            ReadTimeout  = _readTimeout,
-            WriteTimeout = _writeTimeout,
+            // 0 = Infinite — USB-Serial friendly (CH340/CP210x)
+            ReadTimeout  = _readTimeout == 0 ? SerialPort.InfiniteTimeout : _readTimeout,
+            WriteTimeout = _writeTimeout == 0 ? SerialPort.InfiniteTimeout : _writeTimeout,
+
+            // No handshaking, no DTR/RTS toggling (avoids Arduino resets
+            // and semaphore timeouts on cheap USB-Serial adapters)
+            Handshake   = Handshake.None,
+            DtrEnable   = false,
+            RtsEnable   = false,
+            DiscardNull = false,
         };
         _port.DataReceived += OnPortDataReceived;
         _port.Open();
@@ -62,15 +77,18 @@ public sealed class SerialTransport : ITransport
             int count = _port!.BytesToRead;
             if (count <= 0) return;
             var buf = new byte[count];
-            _port.Read(buf, 0, count);
-            DataReceived?.Invoke(this, buf);
+            int read = _port.Read(buf, 0, count);
+            if (read > 0)
+                DataReceived?.Invoke(this, buf[..read]);
         }
+        catch (TimeoutException) { /* infinite-timeout sentinel */ }
         catch { /* swallow; upper layer logs */ }
     }
 
     public Task SendAsync(byte[] data, CancellationToken ct)
     {
-        _port?.Write(data, 0, data.Length);
+        if (_port?.IsOpen == true)
+            _port.Write(data, 0, data.Length);
         return Task.CompletedTask;
     }
 

@@ -108,19 +108,27 @@ public sealed class EsdEventQuery
         var d = day?.Date ?? DateTime.Today;
         var end = d.AddDays(1);
 
-        return await ctx.EsdEvents
+        // EF Core cannot translate positional-record construction
+        // inside a GroupBy projection — aggregate to an anonymous
+        // type in SQL, then map to the record client-side.
+        var rows = await ctx.EsdEvents
             .Where(e => e.EventTime >= d && e.EventTime < end)
             .GroupBy(e => e.EventTime.Hour)
-            .Select(g => new HourlyTrendPoint(
-                Hour:          g.Key,
-                Total:         g.Count(),
-                Ok:            g.Count(e => e.Status == "Ok"),
-                Ng:            g.Count(e => e.Status == "Ng")))
+            .Select(g => new
+            {
+                Hour   = g.Key,
+                Total  = g.Count(),
+                Ok     = g.Count(e => e.Status == "Ok"),
+                Ng     = g.Count(e => e.Status == "Ng"),
+            })
             .OrderBy(p => p.Hour)
             .ToListAsync(ct);
+
+        return rows.Select(r => new HourlyTrendPoint(
+            r.Hour, r.Total, r.Ok, r.Ng)).ToList();
     }
 
-    /// <summary>Per-device OK/NG/Total breakdown for a date — station status cards.</summary>
+    /// <summary>Per-device OK/NG/Warning breakdown for a date — station status cards.</summary>
     public async Task<List<StationBreakdownPoint>> GetStationBreakdownAsync(
         DateTime? day = null, CancellationToken ct = default)
     {
@@ -128,17 +136,22 @@ public sealed class EsdEventQuery
         var d = day?.Date ?? DateTime.Today;
         var end = d.AddDays(1);
 
-        return await ctx.EsdEvents
+        var rows = await ctx.EsdEvents
             .Where(e => e.EventTime >= d && e.EventTime < end)
             .GroupBy(e => e.DeviceName)
-            .Select(g => new StationBreakdownPoint(
-                DeviceName: g.Key,
-                Total:      g.Count(),
-                Ok:         g.Count(e => e.Status == "Ok"),
-                Ng:         g.Count(e => e.Status == "Ng"),
-                Warning:    g.Count(e => e.Status == "Warning")))
+            .Select(g => new
+            {
+                DeviceName = g.Key,
+                Total      = g.Count(),
+                Ok         = g.Count(e => e.Status == "Ok"),
+                Ng         = g.Count(e => e.Status == "Ng"),
+                Warning    = g.Count(e => e.Status == "Warning"),
+            })
             .OrderBy(p => p.DeviceName)
             .ToListAsync(ct);
+
+        return rows.Select(r => new StationBreakdownPoint(
+            r.DeviceName, r.Total, r.Ok, r.Ng, r.Warning)).ToList();
     }
 
     /// <summary>Top operators by event count for a date.</summary>
@@ -149,19 +162,24 @@ public sealed class EsdEventQuery
         var d = day?.Date ?? DateTime.Today;
         var end = d.AddDays(1);
 
-        return await ctx.EsdEvents
+        var rows = await ctx.EsdEvents
             .Where(e => e.EventTime >= d && e.EventTime < end
                      && e.EmployeeId != null)
             .GroupBy(e => e.EmployeeId)
-            .Select(g => new EmployeeActivityPoint(
-                EmployeeId: g.Key!,
-                Total:      g.Count(),
-                Ok:         g.Count(e => e.Status == "Ok"),
-                Ng:         g.Count(e => e.Status == "Ng"),
-                LastEvent:  g.Max(e => e.EventTime)))
+            .Select(g => new
+            {
+                EmployeeId = g.Key!,
+                Total      = g.Count(),
+                Ok         = g.Count(e => e.Status == "Ok"),
+                Ng         = g.Count(e => e.Status == "Ng"),
+                LastEvent  = g.Max(e => e.EventTime),
+            })
             .OrderByDescending(p => p.Total)
             .Take(count)
             .ToListAsync(ct);
+
+        return rows.Select(r => new EmployeeActivityPoint(
+            r.EmployeeId, r.Total, r.Ok, r.Ng, r.LastEvent)).ToList();
     }
 
     /// <summary>

@@ -34,10 +34,18 @@ public sealed class DeviceManager : IDeviceManager
                 WriteTimeoutMs:      s.WriteTimeoutMs,
                 RetryCount:          s.RetryCount,
                 HeartbeatIntervalMs: s.HeartbeatIntervalMs,
-                ProtocolVersion:     s.ProtocolVersion);
+                ProtocolVersion:     s.ProtocolVersion,
+                DeviceId:            s.DeviceId,
+                HmacKey:             s.HmacKey,
+                CommandTimeoutMs:    s.CommandTimeoutMs);
 
             var device = DeviceFactory.Create(cfg);
-            device.EventReceived += OnDeviceEvent;
+
+            if (device is ArduinoDevice arduino)
+                arduino.DomainEventReceived += (_, e) => _events.Publish(e);
+            else
+                device.EventReceived += OnDeviceEvent;
+
             _devices.Add(device);
         }
     }
